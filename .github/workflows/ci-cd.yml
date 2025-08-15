@@ -142,11 +142,21 @@ jobs:
             --task-definition "${{ steps.reg.outputs.NEW_TD_ARN }}" \
             --force-new-deployment
 
-      - name: Quick status
+      - name: Verify running image
         run: |
-          aws ecs describe-services \
+          echo "Verifying running image..."
+          TASK_ARN=$(aws ecs list-tasks \
             --cluster "${ECS_CLUSTER}" \
-            --services "${ECS_SERVICE}" \
-            --region "${AWS_REGION}" \
-            --query 'services[0].{Running:runningCount,Desired:desiredCount,TaskDef:taskDefinition,Events:events[0:3].message}' \
-            --output table
+            --service-name "${ECS_SERVICE}" \
+            --desired-status RUNNING \
+            --query 'taskArns[0]' --output text)
+          RUNNING_IMAGE=$(aws ecs describe-tasks \
+            --cluster "${ECS_CLUSTER}" \
+            --tasks "$TASK_ARN" \
+            --query 'tasks[0].containers[0].image' --output text)
+          echo "Running image: $RUNNING_IMAGE"
+          if [[ "$RUNNING_IMAGE" != "${{ needs.push.outputs.image_uri }}" ]]; then
+            echo "ERROR: Running image does not match pushed digest!"
+            exit 1
+          fi
+          echo "Image verification successful."
