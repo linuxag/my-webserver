@@ -9,7 +9,7 @@
   "taskRoleArn": "arn:aws:iam::668191888953:role/ecsTaskRole",
   "containerDefinitions": [
     {
-      "name": "web",
+      "name": "my-webserver",
       "image": "668191888953.dkr.ecr.us-east-1.amazonaws.com/my-webserver:latest",
       "essential": true,
       "portMappings": [{ "containerPort": 8080, "protocol": "tcp" }],
