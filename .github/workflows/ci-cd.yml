@@ -2,7 +2,7 @@ name: githubactions
 
 on:
   push:
-    branches: [ main ] 
+    branches: [ develop-cleanup ] 
   workflow_dispatch:
 
 permissions:
