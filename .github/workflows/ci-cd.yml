@@ -1,4 +1,4 @@
-name: avolution-backend
+name: githubactions
 
 on:
   push:
