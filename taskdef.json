@@ -1,18 +1,21 @@
 {
-  "family": "my-webserver",
+  "family": "my-webserver", 
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
   "memory": "1024",
-  "runtimePlatform": { "cpuArchitecture": "X86_64", "operatingSystemFamily": "LINUX" },
+  "runtimePlatform": { 
+    "cpuArchitecture": "X86_64", 
+    "operatingSystemFamily": "LINUX" 
+  },
   "executionRoleArn": "arn:aws:iam::668191888953:role/ecsTaskExecutionRole",
   "taskRoleArn": "arn:aws:iam::668191888953:role/ecsTaskRole",
   "containerDefinitions": [
     {
       "name": "my-webserver",
-      "image": "REPLACE_ME",
+      "image": "image": "668191888953.dkr.ecr.us-east-1.amazonaws.com/my-webserver@sha256:8934afedefea8b846b52e2e0b17efe451a567d4c3a0600f785cb8154aea17ff8",
       "essential": true,
-      "portMappings": [{ "containerPort": 8080, "protocol": "tcp" }],
+      "portMappings": [{ "containerPort": 80, "protocol": "tcp" }],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {

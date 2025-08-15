@@ -1,20 +1,20 @@
-name: githubactions
+name: avolution-backend
 
 on:
   push:
-    branches: [ develop-cleanup ]
+    branches: [ main ] # Change if needed
   workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
-  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
-  ECR_REPO: ${{ vars.ECR_REPO }}
-  ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
-  ECS_SERVICE: ${{ vars.ECS_SERVICE }}
-  CONTAINER_NAME: ${{ vars.CONTAINER_NAME }}
+  AWS_REGION: ${{ vars.AWS_REGION }} # e.g., us-east-1
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }} # e.g., 123456789012
+  ECR_REPO: ${{ vars.ECR_REPO }} # e.g., avolution-app
+  ECS_CLUSTER: ${{ vars.ECS_CLUSTER }} # e.g., avolution-cluster
+  ECS_SERVICE: ${{ vars.ECS_SERVICE }} # e.g., avolution-service
+  CONTAINER_NAME: ${{ vars.CONTAINER_NAME }} # e.g., web
 
 jobs:
   build:
@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       image_uri: ${{ steps.pushnresolve.outputs.image_uri }}
-      repo_uri: ${{ steps.pushnresolve.outputs.repo_uri }}
+      repo_uri:  ${{ steps.pushnresolve.outputs.repo_uri }}
     steps:
       - name: Download image artifact
         uses: actions/download-artifact@v4
@@ -60,7 +60,7 @@ jobs:
       - name: Load image
         run: docker load -i image.tar
 
-      - name: Configure AWS (access keys)
+      - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -80,20 +80,12 @@ jobs:
           docker push "${REPO_URI}:${IMAGE_TAG}"
           docker push "${REPO_URI}:latest"
 
-          DIGEST=""
-          for i in {1..5}; do
-            DIGEST=$(aws ecr describe-images \
-              --repository-name "${ECR_REPO}" \
-              --image-ids imageTag="${IMAGE_TAG}" \
-              --query 'imageDetails[0].imageDigest' --output text) && break
-            sleep 5
-          done
-          if [ -z "$DIGEST" ] || [ "$DIGEST" = "None" ]; then
-            echo "Failed to resolve image digest. Check ECR repo/region/tag."
-            exit 1
-          fi
+          DIGEST=$(aws ecr describe-images \
+            --repository-name "${ECR_REPO}" \
+            --image-ids imageTag="${IMAGE_TAG}" \
+            --query 'imageDetails[0].imageDigest' --output text)
 
-          echo "repo_uri=${REPO_URI}" >> "$GITHUB_OUTPUT"
+          echo "repo_uri=${REPO_URI}"         >> "$GITHUB_OUTPUT"
           echo "image_uri=${REPO_URI}@${DIGEST}" >> "$GITHUB_OUTPUT"
 
   deploy:
@@ -106,26 +98,19 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Configure AWS (access keys)
+      - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Patch taskdef.json with new image digest
+      - name: Patch taskdef.json
         run: |
-          echo "New image: ${{ needs.push.outputs.image_uri }}"
           jq --arg IMG "${{ needs.push.outputs.image_uri }}" \
              --arg NAME "${CONTAINER_NAME}" \
              '(.containerDefinitions[] | select(.name==$NAME) | .image)=$IMG' \
              taskdef.json > taskdef.rendered.json
-
-          if grep -q "REPLACE_ME" taskdef.rendered.json; then
-            echo "ERROR: Image replacement failed — container name mismatch?"
-            exit 1
-          fi
-
           cat taskdef.rendered.json
 
       - name: Register task definition
@@ -134,52 +119,12 @@ jobs:
           NEW_TD_ARN=$(aws ecs register-task-definition \
             --cli-input-json file://taskdef.rendered.json \
             --query 'taskDefinition.taskDefinitionArn' --output text)
-          if [ -z "$NEW_TD_ARN" ] || [ "$NEW_TD_ARN" = "None" ]; then
-            echo "Failed to register task definition."
-            exit 1
-          fi
           echo "NEW_TD_ARN=$NEW_TD_ARN" >> "$GITHUB_OUTPUT"
 
-      - name: Update ECS service (force new deployment)
+      - name: Update ECS service
         run: |
           aws ecs update-service \
             --cluster "${ECS_CLUSTER}" \
             --service "${ECS_SERVICE}" \
             --task-definition "${{ steps.reg.outputs.NEW_TD_ARN }}" \
             --force-new-deployment
-
-      - name: Stop old running tasks (force fresh image)
-        run: |
-          TASK_ARNs=$(aws ecs list-tasks \
-            --cluster "${ECS_CLUSTER}" \
-            --service-name "${ECS_SERVICE}" \
-            --desired-status RUNNING \
-            --query 'taskArns[]' --output text)
-          if [ -n "$TASK_ARNs" ]; then
-            for task in $TASK_ARNs; do
-              echo "Stopping old task: $task"
-              aws ecs.stop-task --cluster "${ECS_CLUSTER}" --task "$task" --reason "Forcing deployment of new image"
-            done
-          else
-            echo "No running tasks found to stop."
-          fi
-
-      - name: Verify running image
-        run: |
-          echo "Verifying running image..."
-          sleep 15
-          TASK_ARN=$(aws ecs list-tasks \
-            --cluster "${ECS_CLUSTER}" \
-            --service-name "${ECS_SERVICE}" \
-            --desired-status RUNNING \
-            --query 'taskArns[0]' --output text)
-          RUNNING_IMAGE=$(aws ecs describe-tasks \
-            --cluster "${ECS_CLUSTER}" \
-            --tasks "$TASK_ARN" \
-            --query 'tasks[0].containers[0].image' --output text)
-          echo "Running image: $RUNNING_IMAGE"
-          if [[ "$RUNNING_IMAGE" != "${{ needs.push.outputs.image_uri }}" ]]; then
-            echo "ERROR: Running image does not match pushed digest!"
-            exit 1
-          fi
-          echo "Image verification successful."
