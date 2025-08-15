@@ -2,19 +2,19 @@ name: avolution-backend
 
 on:
   push:
-    branches: [ main ] # Change if needed
+    branches: [ main ] 
   workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION }} # e.g., us-east-1
-  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }} # e.g., 123456789012
-  ECR_REPO: ${{ vars.ECR_REPO }} # e.g., avolution-app
-  ECS_CLUSTER: ${{ vars.ECS_CLUSTER }} # e.g., avolution-cluster
-  ECS_SERVICE: ${{ vars.ECS_SERVICE }} # e.g., avolution-service
-  CONTAINER_NAME: ${{ vars.CONTAINER_NAME }} # e.g., web
+  AWS_REGION: ${{ vars.AWS_REGION }} 
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }} 
+  ECR_REPO: ${{ vars.ECR_REPO }} 
+  ECS_CLUSTER: ${{ vars.ECS_CLUSTER }} 
+  ECS_SERVICE: ${{ vars.ECS_SERVICE }} 
+  CONTAINER_NAME: ${{ vars.CONTAINER_NAME }} 
 
 jobs:
   build:
