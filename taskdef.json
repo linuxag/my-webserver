@@ -1,5 +1,5 @@
 {
-  "family": "testing-cluster",
+  "family": "my-webserver",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
