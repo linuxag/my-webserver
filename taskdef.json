@@ -10,7 +10,7 @@
   "containerDefinitions": [
     {
       "name": "web",
-      "image": "668191888953.dkr.ecr.us-east-1.amazonaws.com/github:latest",
+      "image": "668191888953.dkr.ecr.us-east-1.amazonaws.com/my-webserver:latest",
       "essential": true,
       "portMappings": [{ "containerPort": 8080, "protocol": "tcp" }],
       "logConfiguration": {
