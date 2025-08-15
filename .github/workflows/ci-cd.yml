@@ -117,9 +117,14 @@ jobs:
         run: |
           echo "New image: ${{ needs.push.outputs.image_uri }}"
           jq --arg IMG "${{ needs.push.outputs.image_uri }}" \
-             --arg NAME "${CONTAINER_NAME}" \
-             '(.containerDefinitions[] | select(.name==$NAME) | .image)=$IMG' \
+             '(.containerDefinitions[] | select(.name=="'${CONTAINER_NAME}'") | .image)=$IMG' \
              taskdef.json > taskdef.rendered.json
+
+          if grep -q "REPLACE_ME" taskdef.rendered.json; then
+            echo "ERROR: Image replacement failed — container name mismatch?"
+            exit 1
+          fi
+
           cat taskdef.rendered.json
 
       - name: Register task definition
